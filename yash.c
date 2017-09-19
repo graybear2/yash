@@ -106,7 +106,7 @@ retStruct* parse(char** TOKENS){
 void execute(char** TOKENS, int bg){
     pid_ch1 = fork();
     if(stack->cmdLen > stack->pidLen)
-        pushPid(stack, pid_ch1);
+        pushPid1(stack, pid_ch1);
     if(pid_ch1 < 0){
         perror("fork");
         exit(EXIT_FAILURE);
@@ -118,6 +118,7 @@ void execute(char** TOKENS, int bg){
         //if(signal(SIGTSTP, sig_tstp) == SIG_ERR)
         //    printf("signal(SIGTSTP - single) error");
         stack->foreground[0] = pid_ch1;
+        stack->foreground[1] = -1;
         if(!bg)
             waitForChildren(1); 
     }
@@ -160,8 +161,6 @@ void pipeHandler(char*** stateStart, int bg){
     }
 
     pid_ch1 = fork();
-    if(stack->cmdLen > stack->pidLen)
-        pushPid(stack, pid_ch1);
     if(pid_ch1 < 0){
         perror("fork");
         exit(EXIT_FAILURE);
@@ -180,6 +179,8 @@ void pipeHandler(char*** stateStart, int bg){
             //    printf("signal(SIGTSTP - pipe) error");
             stack->foreground[0] = pid_ch1;
             stack->foreground[1] = pid_ch2;
+            if(stack->cmdLen > stack->pidLen)
+                pushPid2(stack, pid_ch1, pid_ch2);
             close(pipefd[0]);
             close(pipefd[1]);
             if(!bg)
@@ -250,15 +251,16 @@ void waitForChildren(int numChild){
         
         while(count < numChild){
             pid = waitpid(-1, &status, WUNTRACED | WCONTINUED); //TODO
+            printf("pid %d and %d in foreground\n", stack->foreground[0], stack->foreground[1]);
+            int background = (pid != stack->foreground[0] && pid != stack->foreground[1]);
             if(pid == -1)
             {
                //perror("waitpid");
                //exit(EXIT_FAILURE);
                printf("no waitForChildren\n");
-               exit(1);
+               //exit(1);
+               background = 0;
             }
-            printf("pid %d and %d in foreground\n", stack->foreground[0], stack->foreground[1]);
-            int background = (pid != stack->foreground[0] && pid != stack->foreground[1]);
             if(background){
                 printf("background process died: %d\n", pid);
             }
@@ -308,8 +310,13 @@ void fgHandler(){
         printf("No jobs in background\n");
     }
     else{
-        wait(NULL);
-        waitpid(-1, NULL, WNOHANG);
+        kill(popPid(stack, 0), SIGCONT);
+        stack->foreground[0] = popPid(stack, 0);
+        if(popPid(stack, 1) != -1){
+            kill(popPid(stack, 1), SIGCONT);
+            stack->foreground[1] = popPid(stack, 1);
+        }
+        waitForChildren(2);
     }
 }
 
@@ -318,11 +325,11 @@ void bgHandler(){
         printf("No jobs in background\n");
     }
     else{ 
-        pid_ch1 = popPid(stack);
-        kill(pid_ch1, SIGCONT);
-        waitForChildren(1);
+        kill(popPid(stack, 0), SIGCONT);
+        if(popPid(stack, 1) != -1)
+            kill(popPid(stack, 1), SIGCONT);
+        waitForChildren(2);
     }
-    exit(0);
 }
 
 //static void sig_int_main(int signo){
@@ -332,14 +339,19 @@ void bgHandler(){
 //    printf("No processes running");
 //}
 static void sig_int(int signo) {
-  printf("Sending SIGINT to group:%d\n",pid_ch1); // group id is pid of first in pipeline
+  printf("Sending SIGINT to group:%d\n",stack->foreground[0]); // group id is pid of first in pipeline
   interrupt = 1;
-  kill(-pid_ch1, SIGINT);
+  kill(stack->foreground[0], SIGINT);
+  if(stack->foreground[1] != -1)
+    kill(stack->foreground[1], SIGINT);
+  waitForChildren(2);
 }
 static void sig_tstp(int signo) {
   printf("Sending SIGTSTP to group:%d\n",pid_ch1); // group id is pid of first in pipeline
   interrupt = 1;
-  kill(-pid_ch1, SIGTSTP);
+  kill(stack->foreground[0], SIGTSTP);
+  if(stack->foreground[1] != -1)
+    kill(stack->foreground[1], SIGTSTP);
   // kill(-pid_ch1, SIGCONT);
   // stack->fgNum = 2;
   // while(stack->fgNum > 0){}
