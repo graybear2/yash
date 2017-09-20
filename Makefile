@@ -13,7 +13,7 @@ LD  = $(CXX)
 LIBS = 
 
 WFLAGS = -Wall 
-SYMFLAGS = -g
+SYMFLAGS = -g -std=gnu99
 
 PROFILE = #-pg 
 OPTFLAGS =#-O

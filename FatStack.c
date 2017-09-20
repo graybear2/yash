@@ -38,12 +38,19 @@ void pushPid2(FatStack* stack, pid_t pid1, pid_t pid2){
 }
 
 void pushCmd(FatStack* stack, char** command){
+    //printJobs(stack);
+    // int k;
+    // for(k=0; command[k] != NULL; k++)
+    //     printf("%s ", command[k]);
+    // printf("\n");
+
     if(stack->cmdLen >= stack->size){
         printf("Exceeded max job amount");
         exit(1);
     }
 
     int i=0;
+    //printf("cmdLen: %d\n", stack->cmdLen);
     while(command[i] != NULL){
         stack->commands[stack->cmdLen][i] = strdup(command[i]);
         i++;
@@ -51,7 +58,9 @@ void pushCmd(FatStack* stack, char** command){
 
     stack->commands[stack->cmdLen][i] = malloc(sizeof(char*));
     stack->commands[stack->cmdLen][i] = (char*) NULL;
+
     stack->cmdLen++;
+    printJobs(stack);   
 }
 
 int popPid(FatStack* stack, int n){

@@ -38,7 +38,7 @@ int main(int argc, char **argv){
                 execute(TOKENS, handle & 2);
         }
 
-        //sleep(.5);
+        stack->foreground[0] = -1;
         printf("# ");
     }
     return 0;
@@ -264,38 +264,36 @@ void waitForChildren(int numChild){
             if(background){
                 printf("background process died: %d\n", pid);
             }
-            //else
-            {
-                // wait does not take options:
-                //    waitpid(-1,&status,0) is same as wait(&status)
-                // with no options waitpid wait only for terminated child processes
-                // with options we can specify what other changes in the child's status
-                // we can respond to. Here we are saying we want to also know if the child
-                // has been stopped (WUNTRACED) or continued (WCONTINUED)
-                //printf("status: %d\n", status);    
-                if (WIFEXITED(status)) {
-                  printf("child %d exited, status=%d\n", pid, WEXITSTATUS(status));
-                  if(!background)
+            // wait does not take options:
+            //    waitpid(-1,&status,0) is same as wait(&status)
+            // with no options waitpid wait only for terminated child processes
+            // with options we can specify what other changes in the child's status
+            // we can respond to. Here we are saying we want to also know if the child
+            // has been stopped (WUNTRACED) or continued (WCONTINUED)
+            //printf("status: %d\n", status);    
+            if (WIFEXITED(status)) {
+              printf("child %d exited, status=%d\n", pid, WEXITSTATUS(status));
+              if(!background)
+                count++;
+              removeJob(stack, pid);
+              printf("count: %d\n", count);
+            } 
+            else if (WIFSIGNALED(status)) {
+                printf("child %d killed by signal %d\n", pid, WTERMSIG(status));
+                if(!background)
                     count++;
-                  removeJob(stack, pid);
-                } 
-                else if (WIFSIGNALED(status)) {
-                    printf("child %d killed by signal %d\n", pid, WTERMSIG(status));
-                    if(!background)
-                        count++;
-                    removeJob(stack, pid);
-                } 
-                else if (WIFSTOPPED(status)) {
-                    printf("%d pipe stopped by signal %d\n", pid,WSTOPSIG(status));
-                    if(!background)
-                        count++;
-                    //printf("Sending CONT to %d\n", pid);
-                    //sleep(4); //sleep for 4 seconds before sending CONT
-                    //kill(pid,SIGCONT);
-                } 
-                else if (WIFCONTINUED(status)) {
-                    printf("Continuing %d\n",pid);
-                }
+                removeJob(stack, pid);
+            } 
+            else if (WIFSTOPPED(status)) {
+                printf("%d pipe stopped by signal %d\n", pid,WSTOPSIG(status));
+                if(!background)
+                    count++;
+                //printf("Sending CONT to %d\n", pid);
+                //sleep(4); //sleep for 4 seconds before sending CONT
+                //kill(pid,SIGCONT);
+            } 
+            else if (WIFCONTINUED(status)) {
+                printf("Continuing %d\n",pid);
             }
         }
 }
@@ -306,17 +304,20 @@ void jobHandler(){
 }
 
 void fgHandler(){
+    int numChildren;
     if(stack->cmdLen == 0){
         printf("No jobs in background\n");
     }
     else{
+        numChildren = 1;
         kill(popPid(stack, 0), SIGCONT);
         stack->foreground[0] = popPid(stack, 0);
         if(popPid(stack, 1) != -1){
             kill(popPid(stack, 1), SIGCONT);
             stack->foreground[1] = popPid(stack, 1);
+            numChildren = 2;
         }
-        waitForChildren(2);
+        waitForChildren(numChildren);
     }
 }
 
@@ -332,47 +333,25 @@ void bgHandler(){
     }
 }
 
-//static void sig_int_main(int signo){
-//    printf("No processes running")
-//}
-//static void sig_tstp_main(int signo){
-//    printf("No processes running");
-//}
 static void sig_int(int signo) {
-  printf("Sending SIGINT to group:%d\n",stack->foreground[0]); // group id is pid of first in pipeline
-  interrupt = 1;
-  kill(stack->foreground[0], SIGINT);
-  if(stack->foreground[1] != -1)
-    kill(stack->foreground[1], SIGINT);
-  waitForChildren(2);
+    if(stack->foreground[0] != -1){
+        printf("Sending SIGINT to group:%d\n",stack->foreground[0]); // group id is pid of first in pipeline
+        interrupt = 1;
+        kill(stack->foreground[0], SIGINT);
+        if(stack->foreground[1] != -1)
+        kill(stack->foreground[1], SIGINT);
+    }
 }
 static void sig_tstp(int signo) {
-  printf("Sending SIGTSTP to group:%d\n",pid_ch1); // group id is pid of first in pipeline
-  interrupt = 1;
-  kill(stack->foreground[0], SIGTSTP);
-  if(stack->foreground[1] != -1)
-    kill(stack->foreground[1], SIGTSTP);
-  // kill(-pid_ch1, SIGCONT);
-  // stack->fgNum = 2;
-  // while(stack->fgNum > 0){}
-  // if((pid = waitpid(-1, &status, WUNTRACED | WCONTINUED)) == -1){
-  //       printf("no sig_tstp\n");
-  //   }
-  //  printf("sigtstp recieved by child %d\n", pid); 
+    if(stack->foreground[0] != -1){
+        printf("Sending SIGTSTP to group:%d\n",pid_ch1); // group id is pid of first in pipeline
+        interrupt = 1;
+        kill(stack->foreground[0], SIGTSTP);
+        if(stack->foreground[1] != -1)
+            kill(stack->foreground[1], SIGTSTP);
+    }
 }
 
 static void sig_chld(int signo){
-    printf("child received some signal\n");
-    // if((pid = waitpid(-1, &status, WUNTRACED | WCONTINUED)) == -1){
-    //     printf("no sig_child\n");
-    // }
-    // else{
-    //     printf("%d pid exited\n", pid);
-    //     printf("foreground: %d\n", stack->foreground);
-    //     if(interrupt){
-    //         stack->fgNum = 0;
-    //         //if(stack->fgNum == 0)
-    //         interrupt = 0;
-    //     }
-    // }
+    //printf("child received some signal\n");
 }
