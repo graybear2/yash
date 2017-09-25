@@ -168,11 +168,11 @@ void pipeHandler(char*** stateStart, int bg){
 
     if (pid_ch1 > 0){
         // Parent
-        printf("pid_ch1: %d\n", pid_ch1);
+        //printf("pid_ch1: %d\n", pid_ch1);
         pid_ch2 = fork();
         if (pid_ch2 > 0){
             //Parent
-            printf("pid_ch2: %d\n", pid_ch2);
+            //printf("pid_ch2: %d\n", pid_ch2);
             //if(signal(SIGINT, sig_int) == SIG_ERR)
             //    printf("signal(SIGINT - pipe) error");
             //if(signal(SIGTSTP, sig_tstp) == SIG_ERR)
@@ -251,18 +251,18 @@ void waitForChildren(int numChild){
         
         while(count < numChild){
             pid = waitpid(-1, &status, WUNTRACED | WCONTINUED); //TODO
-            printf("pid %d and %d in foreground\n", stack->foreground[0], stack->foreground[1]);
+            //printf("pid %d and %d in foreground\n", stack->foreground[0], stack->foreground[1]);
             int background = (pid != stack->foreground[0] && pid != stack->foreground[1]);
             if(pid == -1)
             {
                //perror("waitpid");
                //exit(EXIT_FAILURE);
-               printf("no waitForChildren\n");
+               //printf("no waitForChildren\n");
                //exit(1);
                background = 0;
             }
             if(background){
-                printf("background process died: %d\n", pid);
+                //printf("background process died: %d\n", pid);
             }
             // wait does not take options:
             //    waitpid(-1,&status,0) is same as wait(&status)
@@ -270,31 +270,32 @@ void waitForChildren(int numChild){
             // with options we can specify what other changes in the child's status
             // we can respond to. Here we are saying we want to also know if the child
             // has been stopped (WUNTRACED) or continued (WCONTINUED)
-            //printf("status: %d\n", status);    
+            //printf("status: %d\n", status); 
             if (WIFEXITED(status)) {
-              printf("child %d exited, status=%d\n", pid, WEXITSTATUS(status));
+              //printf("child %d exited, status=%d\n", pid, WEXITSTATUS(status));
               if(!background)
                 count++;
               removeJob(stack, pid);
-              printf("count: %d\n", count);
+              //printf("count: %d\n", count);
             } 
             else if (WIFSIGNALED(status)) {
-                printf("child %d killed by signal %d\n", pid, WTERMSIG(status));
+                //printf("child %d killed by signal %d\n", pid, WTERMSIG(status));
                 if(!background)
                     count++;
                 removeJob(stack, pid);
             } 
             else if (WIFSTOPPED(status)) {
-                printf("%d pipe stopped by signal %d\n", pid,WSTOPSIG(status));
+                //printf("%d pipe stopped by signal %d\n", pid,WSTOPSIG(status));
                 if(!background)
                     count++;
+                printStopJob(stack);
                 //printf("Sending CONT to %d\n", pid);
                 //sleep(4); //sleep for 4 seconds before sending CONT
                 //kill(pid,SIGCONT);
             } 
             else if (WIFCONTINUED(status)) {
-                printf("Continuing %d\n",pid);
-            }
+                //printf("Continuing %d\n",pid);
+            } 
         }
 }
 
@@ -306,7 +307,7 @@ void jobHandler(){
 void fgHandler(){
     int numChildren;
     if(stack->cmdLen == 0){
-        printf("No jobs in background\n");
+        printf("yash: fg: current: no such job\n");
     }
     else{
         numChildren = 1;
@@ -335,16 +336,16 @@ void bgHandler(){
 
 static void sig_int(int signo) {
     if(stack->foreground[0] != -1){
-        printf("Sending SIGINT to group:%d\n",stack->foreground[0]); // group id is pid of first in pipeline
+        //printf("Sending SIGINT to group:%d\n",stack->foreground[0]); // group id is pid of first in pipeline
         interrupt = 1;
         kill(stack->foreground[0], SIGINT);
         if(stack->foreground[1] != -1)
-        kill(stack->foreground[1], SIGINT);
+            kill(stack->foreground[1], SIGINT);
     }
 }
 static void sig_tstp(int signo) {
     if(stack->foreground[0] != -1){
-        printf("Sending SIGTSTP to group:%d\n",pid_ch1); // group id is pid of first in pipeline
+        //printf("Sending SIGTSTP to group:%d\n",pid_ch1); // group id is pid of first in pipeline
         interrupt = 1;
         kill(stack->foreground[0], SIGTSTP);
         if(stack->foreground[1] != -1)

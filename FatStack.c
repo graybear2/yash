@@ -8,6 +8,7 @@ void init(FatStack* stack){
     stack->foreground[0] = -1;
     stack->foreground[1] = -1;
     stack->fgNum = 0;
+    stack->phraseLen = (int*) malloc(sizeof(int)*100);
     stack->jobs = malloc(sizeof(pid_t*)*100);
     for(int i=0; i<100; i++){
         stack->jobs[i] = malloc(sizeof(pid_t)*2);
@@ -58,9 +59,9 @@ void pushCmd(FatStack* stack, char** command){
 
     stack->commands[stack->cmdLen][i] = malloc(sizeof(char*));
     stack->commands[stack->cmdLen][i] = (char*) NULL;
-
+    stack->phraseLen[stack->cmdLen] = i;
     stack->cmdLen++;
-    printJobs(stack);   
+    //printJobs(stack);   
 }
 
 int popPid(FatStack* stack, int n){
@@ -91,12 +92,20 @@ int removeJob(FatStack* stack, pid_t pid){
 
 void printJobs(FatStack* stack){
     for(int i=0; i<stack->cmdLen; i++){
-            int k=0;
-            printf("Job %d: ", i);
-            while(stack->commands[i][k] != NULL){
-                printf("%s ", stack->commands[i][k]);
-                k++;
-            }
-            printf(", PID: %d\n", stack->jobs[i][0]);
+        if(i+1 == stack->cmdLen)
+            printf("[%d]-  Running                 ", i+1);
+        else
+            printf("[%d]+  Running                 ", i+1);
+        for(int k=0; k<stack->phraseLen[i]; k++){
+            printf("%s ", stack->commands[i][k]);
+        }
+        printf("\n");
     }
+}
+void printStopJob(FatStack* stack){
+    printf("Stopped    ");
+    for(int k=0; k<stack->phraseLen[stack->cmdLen-1]; k++){
+        printf("%s ", stack->commands[stack->cmdLen-1][k]);
+    }
+    printf("\n");
 }

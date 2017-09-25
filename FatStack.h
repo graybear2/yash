@@ -12,6 +12,7 @@ typedef struct{
         pid_t* foreground;
         volatile int fgNum;
         char*** commands;
+        int* phraseLen;
         pid_t** jobs;
 } FatStack;
 
@@ -22,5 +23,6 @@ void pushCmd(FatStack*, char**);
 int popPid(FatStack*, int);
 int removeJob(FatStack*, pid_t);
 void printJobs(FatStack*);
+void printStopJob(FatStack*);
 
 #endif
